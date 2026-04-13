@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
@@ -11,7 +10,7 @@ interface Post {
   title: string;
   content: string;
   published: boolean;
-  createdAt: any;
+  created_at: string;
   category: string;
   slug: string;
 }
@@ -31,15 +30,15 @@ export default function AdminDashboard() {
 
   const fetchPosts = async () => {
     try {
-      const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const fetchedPosts = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Post[];
-      setPosts(fetchedPosts);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'posts');
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setPosts(data || []);
+    } catch (error: any) {
+      console.error('Error fetching posts:', error.message);
     } finally {
       setLoading(false);
     }
@@ -50,37 +49,48 @@ export default function AdminDashboard() {
     if (!user) return;
 
     const postData = {
-      ...currentPost,
-      updatedAt: Timestamp.now(),
-      authorId: user.uid,
-      authorName: user.displayName,
+      title: currentPost.title,
+      content: currentPost.content,
+      category: currentPost.category,
+      published: currentPost.published,
+      author_id: user.id,
+      author_name: user.user_metadata.full_name || user.email,
       slug: currentPost.title?.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') || '',
+      updated_at: new Date().toISOString(),
     };
 
     try {
       if (currentPost.id) {
-        await updateDoc(doc(db, 'posts', currentPost.id), postData);
+        const { error } = await supabase
+          .from('posts')
+          .update(postData)
+          .eq('id', currentPost.id);
+        if (error) throw error;
       } else {
-        await addDoc(collection(db, 'posts'), {
-          ...postData,
-          createdAt: Timestamp.now(),
-        });
+        const { error } = await supabase
+          .from('posts')
+          .insert([{ ...postData, created_at: new Date().toISOString() }]);
+        if (error) throw error;
       }
       setIsEditing(false);
       setCurrentPost({});
       fetchPosts();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'posts');
+    } catch (error: any) {
+      console.error('Error saving post:', error.message);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
     try {
-      await deleteDoc(doc(db, 'posts', id));
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
       fetchPosts();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'posts');
+    } catch (error: any) {
+      console.error('Error deleting post:', error.message);
     }
   };
 
@@ -96,7 +106,7 @@ export default function AdminDashboard() {
   return (
     <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard (Supabase)</h1>
         <button
           onClick={() => {
             setCurrentPost({ published: false, category: 'SEO' });
@@ -207,7 +217,7 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500">
-                    {post.createdAt?.toDate ? format(post.createdAt.toDate(), 'MMM d, yyyy') : 'N/A'}
+                    {post.created_at ? format(new Date(post.created_at), 'MMM d, yyyy') : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button

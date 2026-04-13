@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -11,8 +10,8 @@ interface Post {
   title: string;
   excerpt: string;
   category: string;
-  authorName: string;
-  createdAt: any;
+  author_name: string;
+  created_at: string;
   slug: string;
 }
 
@@ -23,19 +22,16 @@ export default function Blog() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const q = query(
-          collection(db, 'posts'),
-          where('published', '==', true),
-          orderBy('createdAt', 'desc')
-        );
-        const querySnapshot = await getDocs(q);
-        const fetchedPosts = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Post[];
-        setPosts(fetchedPosts);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'posts');
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('published', true)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setPosts(data || []);
+      } catch (error: any) {
+        console.error('Error fetching posts:', error.message);
       } finally {
         setLoading(false);
       }
@@ -84,11 +80,11 @@ export default function Blog() {
                     <div className="flex items-center gap-4 text-xs text-slate-500">
                       <div className="flex items-center gap-1">
                         <Calendar size={14} />
-                        {post.createdAt?.toDate ? format(post.createdAt.toDate(), 'MMM d, yyyy') : 'N/A'}
+                        {post.created_at ? format(new Date(post.created_at), 'MMM d, yyyy') : 'N/A'}
                       </div>
                       <div className="flex items-center gap-1">
                         <User size={14} />
-                        {post.authorName || 'Admin'}
+                        {post.author_name || 'Admin'}
                       </div>
                     </div>
                     <Link to={`/blog/${post.id}`} className="text-blue-600 hover:text-blue-700 transition-colors">

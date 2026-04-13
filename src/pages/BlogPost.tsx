@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 import { Calendar, User, ArrowLeft, Share2 } from 'lucide-react';
@@ -11,8 +10,8 @@ interface Post {
   title: string;
   content: string;
   category: string;
-  authorName: string;
-  createdAt: any;
+  author_name: string;
+  created_at: string;
 }
 
 export default function BlogPost() {
@@ -24,13 +23,16 @@ export default function BlogPost() {
     const fetchPost = async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, 'posts', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setPost(docSnap.data() as Post);
-        }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `posts/${id}`);
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) throw error;
+        setPost(data);
+      } catch (error: any) {
+        console.error('Error fetching post:', error.message);
       } finally {
         setLoading(false);
       }
@@ -84,11 +86,11 @@ export default function BlogPost() {
                 <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
                   <User size={16} />
                 </div>
-                <span className="font-medium text-slate-900">{post.authorName || 'Admin'}</span>
+                <span className="font-medium text-slate-900">{post.author_name || 'Admin'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar size={16} />
-                {post.createdAt?.toDate ? format(post.createdAt.toDate(), 'MMMM d, yyyy') : 'N/A'}
+                {post.created_at ? format(new Date(post.created_at), 'MMMM d, yyyy') : 'N/A'}
               </div>
             </div>
             <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
