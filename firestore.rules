@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (optional)
+    //   - email: string (required)
+    //   - role: string (required, enum: ['admin', 'user'])
+    //
+    // Collection: posts
+    // Document ID: {postId}
+    // Fields:
+    //   - title: string (required)
+    //   - slug: string (required)
+    //   - content: string (required)
+    //   - excerpt: string (optional)
+    //   - authorId: string (required)
+    //   - authorName: string (optional)
+    //   - published: bool (required)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //   - category: string (optional)
+    //   - coverImage: string (optional)
+    //
+    // Collection: caseStudies
+    // Document ID: {caseStudyId}
+    // Fields:
+    //   - title: string (required)
+    //   - client: string (required)
+    //   - results: string (required)
+    //   - description: string (optional)
+    //   - image: string (optional)
+    //   - category: string (optional)
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "trantrungthanh.digital2021@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'slug', 'content', 'authorId', 'published']) &&
+             data.title is string && data.title.size() < 200 &&
+             data.slug is string && data.slug.size() < 200 &&
+             data.content is string && data.content.size() < 50000 &&
+             data.authorId is string &&
+             data.published is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role));
+    }
+
+    match /posts/{postId} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow create: if isAdmin() && isValidPost(request.resource.data);
+      allow update: if isAdmin() && isValidPost(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /caseStudies/{caseStudyId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Blog Post",
+      "description": "A blog post for the marketing portfolio",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Post title" },
+        "slug": { "type": "string", "description": "URL slug" },
+        "content": { "type": "string", "description": "Markdown content" },
+        "excerpt": { "type": "string", "description": "Short summary" },
+        "authorId": { "type": "string", "description": "UID of the author" },
+        "authorName": { "type": "string", "description": "Name of the author" },
+        "published": { "type": "boolean", "description": "Publish status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" },
+        "category": { "type": "string", "enum": ["SEO", "Content Marketing", "Paid Ads", "Social Media", "AI Marketing"], "description": "Post category" },
+        "coverImage": { "type": "string", "description": "URL to cover image" }
+      },
+      "required": ["title", "slug", "content", "authorId", "published"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "CaseStudy": {
+      "title": "Case Study",
+      "description": "A marketing case study",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "client": { "type": "string" },
+        "results": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["title", "client", "results"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Blog posts collection"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/caseStudies/{caseStudyId}": {
+      "schema": "CaseStudy",
+      "description": "Portfolio case studies"
+    }
+  }
+}
